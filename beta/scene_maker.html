@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deck Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-gray-900 via-[#0b1220] to-black text-white p-6">
+
+<h1 class="text-3xl text-orange-400 mb-6">Deck Builder</h1>
+
+<!-- FORM -->
+<div class="bg-white/5 backdrop-blur p-5 rounded-2xl mb-6 space-y-5 border border-white/10">
+
+<div class="grid grid-cols-3 gap-3">
+
+<div class="space-y-1">
+<label class="text-xs text-gray-400">Card Name</label>
+<input id="name" placeholder="Card Name"
+class="px-3 py-2 rounded-xl bg-white/10 border border-white/10 w-full">
+</div>
+
+<div class="space-y-1">
+<label class="text-xs text-gray-400">Type</label>
+<select id="type"
+class="px-3 py-2 rounded-xl bg-white/10 border border-white/10 w-full">
+<option>Attack</option>
+<option>Skill</option>
+<option>Power</option>
+<option>Status</option>
+<option>Curse</option>
+</select>
+</div>
+
+<label class="flex items-center gap-2 text-sm mt-6">
+<input type="checkbox" id="isUpgraded"> Upgraded
+</label>
+
+</div>
+
+<div class="grid grid-cols-4 gap-3 text-sm">
+
+<div>
+<label class="text-xs text-gray-400">Cost</label>
+<input id="costBase" class="w-full px-2 py-2 rounded-xl bg-white/10 border">
+</div>
+
+<div>
+<label class="text-xs text-gray-400">Damage</label>
+<input id="dmgBase" class="w-full px-2 py-2 rounded-xl bg-white/10 border">
+</div>
+
+<div>
+<label class="text-xs text-gray-400">Block</label>
+<input id="blockBase" class="w-full px-2 py-2 rounded-xl bg-white/10 border">
+</div>
+
+<div>
+<label class="text-xs text-gray-400">Draw</label>
+<input id="drawBase" class="w-full px-2 py-2 rounded-xl bg-white/10 border">
+</div>
+
+</div>
+
+<textarea id="desc" placeholder="Description"
+class="w-full px-3 py-2 rounded-xl bg-white/10 border"></textarea>
+
+<button onclick="addCard()" class="w-full py-2 rounded-xl bg-green-600">Add Card</button>
+
+</div>
+
+<!-- ENEMIES -->
+<div class="bg-white/5 p-5 rounded-2xl mb-6 border border-white/10">
+<h2 class="text-xl text-red-400 mb-3">Enemies</h2>
+
+<div class="grid grid-cols-3 gap-3">
+<input id="enemyName" placeholder="Enemy Name" class="px-3 py-2 rounded-xl bg-white/10 border">
+<input id="enemyHp" placeholder="HP" class="px-3 py-2 rounded-xl bg-white/10 border">
+<button onclick="addEnemy()" class="bg-red-600 rounded-xl">Add Enemy</button>
+</div>
+
+<div id="enemyList" class="mt-4 space-y-4"></div>
+</div>
+
+<!-- DECK -->
+<div id="deck" class="space-y-3"></div>
+
+<script>
+
+let deck=[];
+let enemies=[];
+
+function val(id){return document.getElementById(id).value.trim();}
+function num(v){return parseInt(v)||0;}
+
+function addCard(){
+  deck.push({
+    name:val("name"),
+    type:val("type"),
+    isUpgraded:document.getElementById("isUpgraded").checked,
+    desc:val("desc")
+  });
+  render();
+}
+
+// ENEMIES STRUCTURE: enemy -> turns -> intents
+function addEnemy(){
+  enemies.push({
+    name:val("enemyName"),
+    hp:num(val("enemyHp")),
+    turns:[]
+  });
+  renderEnemies();
+}
+
+function addTurn(ei){
+  enemies[ei].turns.push({intents:[]});
+  renderEnemies();
+}
+
+function addIntent(ei,ti){
+  let type=prompt("Intent type?");
+  let value=prompt("Value?");
+  enemies[ei].turns[ti].intents.push({type,value});
+  renderEnemies();
+}
+
+function removeEnemy(i){enemies.splice(i,1);renderEnemies();}
+function removeTurn(ei,ti){enemies[ei].turns.splice(ti,1);renderEnemies();}
+function removeIntent(ei,ti,ii){enemies[ei].turns[ti].intents.splice(ii,1);renderEnemies();}
+
+function renderEnemies(){
+  let el=document.getElementById("enemyList");
+  el.innerHTML="";
+
+  enemies.forEach((e,ei)=>{
+    el.innerHTML+=`
+    <div class='p-3 bg-white/5 rounded-xl border border-white/10'>
+      <div class='flex justify-between'>
+        <div>${e.name} | HP:${e.hp}</div>
+        <button onclick='removeEnemy(${ei})'>X</button>
+      </div>
+
+      <button onclick='addTurn(${ei})' class='mt-2 bg-red-500 px-2 rounded'>+ Turn</button>
+
+      <div class='mt-2 space-y-2'>
+      ${e.turns.map((t,ti)=>`
+        <div class='bg-black/30 p-2 rounded'>
+          <div class='flex justify-between'>
+            <div>Turn ${ti+1}</div>
+            <div>
+              <button onclick='addIntent(${ei},${ti})'>+Intent</button>
+              <button onclick='removeTurn(${ei},${ti})'>Del Turn</button>
+            </div>
+          </div>
+
+          <div class='ml-2 text-sm'>
+            ${t.intents.map((it,ii)=>`
+              <div class='flex justify-between'>
+                <span>${it.type}: ${it.value}</span>
+                <button onclick='removeIntent(${ei},${ti},${ii})'>x</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+      </div>
+
+    </div>`;
+  });
+}
+
+function render(){
+  let el=document.getElementById("deck");
+  el.innerHTML="";
+  deck.forEach((c,i)=>{
+    el.innerHTML+=`<div class='p-3 bg-white/5 rounded-xl'>${i+1}. ${c.name}</div>`;
+  });
+}
+
+</script>
+
+</body>
+</html>

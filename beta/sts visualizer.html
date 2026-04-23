@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>STS Combat Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-gray-900 via-[#0b1220] to-black text-white p-6">
+
+<h1 class="text-3xl font-bold mb-6 text-orange-400">Combat Planner</h1>
+
+<input type="file" id="fileInput" class="mb-4">
+
+<div class="grid grid-cols-2 gap-6">
+
+<!-- TIMELINE -->
+<div class="bg-gray-900 p-4 rounded-xl">
+  <h2 class="text-xl text-cyan-400 mb-4">Fight Timeline</h2>
+  <div id="timeline"></div>
+</div>
+
+<!-- RIGHT SIDE -->
+<div>
+
+<div class="bg-gray-900 p-4 rounded-xl mb-4">
+  <h2 class="text-xl text-orange-400">Turn View</h2>
+  <div id="turnInfo"></div>
+</div>
+
+<div class="flex gap-2 mb-4">
+  <button onclick="prevTurn()" class="bg-gray-700 px-3 py-1 rounded">←</button>
+  <span id="turnNum"></span>
+  <button onclick="nextTurn()" class="bg-gray-700 px-3 py-1 rounded">→</button>
+</div>
+
+<div class="flex gap-2 mb-4">
+  <button onclick="drawOne()" class="bg-blue-600 px-2 py-1 rounded">Draw 1</button>
+  <button onclick="discardHand()" class="bg-yellow-600 px-2 py-1 rounded">Discard Hand</button>
+  <button onclick="reset()" class="bg-gray-600 px-2 py-1 rounded">Reset</button>
+</div>
+
+<div class="grid grid-cols-4 gap-2 text-sm">
+  <div><h3>Draw</h3><div id="drawPile"></div></div>
+  <div><h3>Hand</h3><div id="hand"></div></div>
+  <div><h3>Discard</h3><div id="discard"></div></div>
+  <div><h3>Exhaust</h3><div id="exhaust"></div></div>
+</div>
+
+</div>
+</div>
+
+<script>
+let data = null;
+
+let state = {
+  turn: 1,
+  drawPile: [],
+  hand: [],
+  discard: [],
+  exhaust: []
+};
+
+// LOAD JSON
+fileInput.onchange = e => {
+  const r = new FileReader();
+  r.onload = ev => {
+    data = JSON.parse(ev.target.result);
+    reset();
+  };
+  r.readAsText(e.target.files[0]);
+};
+
+// RESET
+function reset() {
+  state.turn = 1;
+  state.drawPile = [...data.deck];
+  state.hand = [];
+  state.discard = [];
+  state.exhaust = [];
+  renderAll();
+}
+
+// VALUE HELPER
+function getValue(field, card) {
+  if (!field) return null;
+
+  if (typeof field === "object") {
+    if (card.isUpgraded && field.upgraded !== undefined) {
+      return field.upgraded;
+    }
+    return field.base;
+  }
+
+  return field;
+}
+
+// DAMAGE CALC
+function getDamage(card) {
+  const base = getValue(card.damage, card);
+  if (!base) return null;
+
+  return {
+    base,
+    weak: Math.floor(base * data.player.modifiers.weakMultiplier),
+    vuln: Math.floor(base * data.player.modifiers.vulnerableMultiplier),
+    both: Math.floor(
+      base *
+      data.player.modifiers.weakMultiplier *
+      data.player.modifiers.vulnerableMultiplier
+    )
+  };
+}
+
+// DRAW / DISCARD
+function drawOne() {
+  if (state.drawPile.length) {
+    state.hand.push(state.drawPile.shift());
+  }
+  renderZones();
+}
+
+function discardHand() {
+  state.discard.push(...state.hand);
+  state.hand = [];
+  renderZones();
+}
+
+// MOVE CARD
+function move(from, i, to) {
+  let src = state[from];
+  let c = src.splice(i, 1)[0];
+  if (!c) return;
+
+  if (to === "discard") state.discard.push(c);
+  if (to === "exhaust") state.exhaust.push(c);
+  if (to === "top") state.drawPile.unshift(c);
+  if (to === "hand") state.hand.push(c);
+  if (to === "shuffle") {
+    let pos = Math.floor(Math.random() * (state.drawPile.length + 1));
+    state.drawPile.splice(pos, 0, c);
+  }
+
+  renderZones();
+}
+
+// CARD UI
+function card(c, loc, i) {
+  let dmg = getDamage(c);
+  let block = getValue(c.block, c);
+  let draw = getValue(c.draw, c);
+
+  return `
+  <div class="relative group mb-1">
+
+    <div class="p-2 rounded bg-gray-800 hover:scale-105 transition text-xs cursor-pointer">
+      <div class="flex justify-between">
+        <span>${c.name}${c.isUpgraded ? "+" : ""}</span>
+        <span>${getValue(c.cost, c) || ""}</span>
+      </div>
+      ${dmg ? `<div class="text-red-400">${dmg.base}</div>` : ""}
+      ${block ? `<div class="text-blue-400">${block}</div>` : ""}
+    </div>
+
+    <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-50 bg-black p-3 rounded w-56 border border-gray-700 text-xs">
+
+      <div class="font-bold mb-1">${c.name}</div>
+
+      ${dmg ? `
+        Base: ${dmg.base}<br>
+        Weak: ${dmg.weak}<br>
+        Vuln: ${dmg.vuln}<br>
+        Both: ${dmg.both}<br>
+      ` : ""}
+
+      ${block ? `Block: ${block}<br>` : ""}
+      ${draw ? `Draw: ${draw}<br>` : ""}
+      ${c.desc ? `<div class="mt-1 text-gray-300">${c.desc}</div>` : ""}
+
+      <div class="flex flex-wrap gap-1 mt-2 text-[10px]">
+        <button onclick="move('${loc}',${i},'discard')" class="bg-gray-600 px-1">D</button>
+        <button onclick="move('${loc}',${i},'exhaust')" class="bg-red-600 px-1">E</button>
+        <button onclick="move('${loc}',${i},'top')" class="bg-blue-600 px-1">T</button>
+        <button onclick="move('${loc}',${i},'hand')" class="bg-green-600 px-1">H</button>
+        <button onclick="move('${loc}',${i},'shuffle')" class="bg-purple-600 px-1">S</button>
+      </div>
+
+    </div>
+  </div>
+  `;
+}
+
+// ZONES
+function renderZones() {
+  renderZone("drawPile", "drawPile");
+  renderZone("hand", "hand");
+  renderZone("discard", "discard");
+  renderZone("exhaust", "exhaust");
+}
+
+function renderZone(id, key) {
+  let el = document.getElementById(id);
+  el.innerHTML = "";
+  state[key].forEach((c, i) => el.innerHTML += card(c, key, i));
+}
+
+// TURN VIEW
+function renderTurn() {
+  turnNum.innerText = "Turn " + state.turn;
+
+  let energy = data.player.energy.base +
+    (state.turn === 1 ? data.player.energy.turn1Bonus : 0);
+
+  let intents = data.enemies.map(e => {
+    let i = e.intents.find(x => x.turn === state.turn);
+    return `<div class="mb-2"><b>${e.name}</b><br>${renderIntentText(i)}</div>`;
+  }).join("");
+
+  turnInfo.innerHTML = `Energy: ${energy}<div class="mt-2">${intents}</div>`;
+}
+
+// TEXT INTENT
+function renderIntentText(intent) {
+  if (!intent) return "-";
+
+  return intent.actions.map(a => {
+    if (a.type === "attack") return `⚔️ ${a.value}`;
+    if (a.type === "debuff") {
+      if (a.effect === "Weak") return `🟣 Weak ${a.value}`;
+      if (a.effect === "Vulnerable") return `🔺 Vuln ${a.value}`;
+      if (a.effect === "Entangle") return `⚠️ Entangle`;
+    }
+    if (a.type === "buff") return `💪 +${a.value}`;
+    if (a.type === "status") return `🩸 ${a.value} Wounds`;
+  }).join("<br>");
+}
+
+// TIMELINE (STYLED)
+function renderTimeline() {
+  let html = `
+    <div class="grid grid-cols-5 text-sm text-gray-400 mb-2">
+      <div>Turn</div>
+      ${data.enemies.map(e => `
+        <div>${e.name}<br>
+        <span class="text-red-400">HP: ${e.hp}</span></div>
+      `).join("")}
+      <div class="text-yellow-400">Total</div>
+    </div>
+  `;
+
+  for (let t = 1; t <= 4; t++) {
+    let total = 0;
+
+    let row = `<div class="grid grid-cols-5 items-center border-t border-gray-700 py-2">`;
+
+    row += `<div class="text-cyan-400 font-bold">${t}</div>`;
+
+    data.enemies.forEach(e => {
+      let intent = e.intents.find(x => x.turn === t);
+      let cell = "";
+
+      if (intent) {
+        intent.actions.forEach(a => {
+          if (a.type === "attack") {
+            total += a.value;
+            cell += `<div class="text-red-400">⚔️ ${a.value}</div>`;
+          }
+          if (a.type === "debuff") {
+            if (a.effect === "Weak") cell += `<div class="text-purple-400">🟣 W${a.value}</div>`;
+            if (a.effect === "Vulnerable") cell += `<div class="text-pink-400">🔺 V${a.value}</div>`;
+            if (a.effect === "Entangle") cell += `<div class="text-yellow-400">⚠️</div>`;
+          }
+          if (a.type === "buff") {
+            cell += `<div class="text-green-400">💪 +${a.value}</div>`;
+          }
+          if (a.type === "status") {
+            cell += `<div class="text-red-300">🩸 ${a.value}</div>`;
+          }
+        });
+      }
+
+      row += `<div class="text-xs">${cell || "-"}</div>`;
+    });
+
+    row += `<div class="text-yellow-300 font-bold">${total}</div>`;
+    row += `</div>`;
+
+    html += row;
+  }
+
+  timeline.innerHTML = html;
+}
+
+// MAIN RENDER
+function renderAll() {
+  renderZones();
+  renderTurn();
+  renderTimeline();
+}
+
+// TURN NAV
+function nextTurn() {
+  state.turn++;
+  renderTurn();
+}
+
+function prevTurn() {
+  if (state.turn > 1) state.turn--;
+  renderTurn();
+}
+
+</script>
+
+</body>
+</html>

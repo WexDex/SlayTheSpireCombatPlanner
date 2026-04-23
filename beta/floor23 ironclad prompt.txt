@@ -1,0 +1,46 @@
+Deck order: 24 cards (Cost, Damage/block if it has it, Type of card, keywords) (or curses/status)
+Carnage+ : 2 Cost, 28 Damage, Attack,
+Wild Strike : 1 Cost, 15 damage, Attack,
+Corruption : 3(2) Cost, Power, Makes skills 0
+Evolve : 1 Cost,Power
+Ascender's Bane : Curse, Ethereal
+Strike+ : 1 Cost, 12 Damage, Attack
+Ghostly Armor : 1 Cost, 10 Block, Skill, Ethereal
+Defend+ : 1 Cost, 8 Block, Skill
+Shug it off : 1 Cost, 8 Block, Skill , Draw 1
+Defend+ : 1 Cost, 8 Block, Skill
+Bash+ : 2 Cost, 10 Damage, Attack, apply 3 Vuln
+Havoc : 1(0) Cost, Skill, Exhausts top card and plays it
+Strike+ : 1 Cost, 12 Damage, Attack
+Defend+ : 1 Cost, 8 Block, Skill
+Strike+ : 1 Cost, 12 Damage, Attack
+Wound : Status, if i play Wild Strike turn 1
+Pommel Strike : 1 Cost, 12(13) Damage, Attack, Draw 1(2)
+Defend+ : 1 Cost, 8 Block, Skill
+Strike+ : 1 Cost, 12 Damage, Attack
+Armaments+ : 1 Cost, 5 Block, Skill, Upgrades all hand
+Dark Embrace : 2(1) Cost, Power, Draw cards on Exhaust
+Pommel Strike : 1 Cost, 12(13) Damage, Attack, Draw 1(2)
+Bloodletting : 0 Cost, Skill, Gain 2(3) Energy
+Strike+ : 1 Cost, 12 Damage, Attack
+Feel no pain: 1 Cost, Power, Gain 3(4) block on exhaust
+----------------------------------------------------------------------
+Potions:
+Power Potion : it gives 3 card choices
+Brutality : 0 Cost , Power, take 1 damage and Draw 1 card on turn start
+Feel no pain : 0 Cost, Power, Gain 3(4) block on exhaust
+Juggernaut : 0 Cost, Power, Deal 5 Damage on Block
+----------------------------------------------------------------------
+Player Stats:
+30 Hp
+68 MaxHp
+enemies take 75% more damage from Vulnerable instead of 50%
+turn 3 Gain 18 Block
+in Turn 5 gain 1 Intangible
+----------------------------------------------------------------------
+Enemies Intents : Elite combat, 3 enemies (Blue Slaver,Taskmaster,Red Slaver)
+Stats : 50 HP, 58 HP, 51 HP
+Turn 1 : 8 damage + apply 2 weak , 7 damage + add 3 wounds to Discard + gain 1 strength , 14 damage
+Turn 2 : 13 damage, 8 damage + add 3 wounds to discard + gain 1 strength , apply Entangle to player (unable to use attacks next turn)
+turn 3 : 8 damage + apply 2 weak, 9 damage + add 3 wounds to discard + gain 1 strength,9 damage + apply 2 vulnerable
+turn 4 : 19 damage , 15 damage + gain 1 strength + add wounds to discard, 21 damage , im vulnerable this turn so i take 50% more damage fix the damages
