@@ -6,6 +6,9 @@
       "base": 3,
       "turn1Bonus": 1
     },
+	"combatType": "Elite",
+	"combatName": "Slavers",
+	"floor": 23,
     "drawPerTurn": 5,
     "modifiers": {
       "vulnerableMultiplier": 1.75,

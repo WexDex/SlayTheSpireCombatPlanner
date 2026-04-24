@@ -73,7 +73,7 @@ export default function EnemyDetailsBlock({
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-bold text-gray-100">{enemy.name}</h4>
                 <span className="text-xs bg-gray-900 px-2 py-1 rounded text-gray-400">
-                  Lvl {idx + 1}
+                  Enemy {idx + 1}
                 </span>
               </div>
 

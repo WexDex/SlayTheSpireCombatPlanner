@@ -5,6 +5,7 @@ type Props = {
   MaxHP?: number;
   Block?: number;
   Energy?: number;
+  MaxEnergy?: number;
   DrawPT?: number;
   buffs?: string[];
   debuffs?: string[];
@@ -15,7 +16,7 @@ type Props = {
   onChangeDrawPT?: (value: number) => void;
 };
 
-export default function PlayerStatsBlock({ HP = 5, MaxHP = 10, Block = 0, Energy = 3, DrawPT = 5, buffs = [], debuffs = [], onChangeHP, onChangeMaxHP, onChangeBlock, onChangeEnergy, onChangeDrawPT }: Props) {
+export default function PlayerStatsBlock({ HP = 5, MaxHP = 10, Block = 0, Energy = 3, MaxEnergy = 3, DrawPT = 5, buffs = [], debuffs = [], onChangeHP, onChangeMaxHP, onChangeBlock, onChangeEnergy, onChangeDrawPT }: Props) {
   const hpRatio = MaxHP > 0 ? HP / MaxHP : 0;
 
   return (
@@ -66,10 +67,11 @@ export default function PlayerStatsBlock({ HP = 5, MaxHP = 10, Block = 0, Energy
           </div>
         </div>
         <div className="flex-1 bg-blue-900/30 px-4 py-3 rounded-lg border border-blue-700/30">
-          <div className="text-xs text-gray-400 mb-2">Energy</div>
+          <div className="text-xs text-gray-400 mb-2">Energy ({Energy}/{MaxEnergy})</div>
           <input
             type="number"
             min={0}
+            max={MaxEnergy}
             value={Energy}
             onChange={(e) => onChangeEnergy?.(Number(e.target.value))}
             className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-white"
@@ -109,23 +111,6 @@ export default function PlayerStatsBlock({ HP = 5, MaxHP = 10, Block = 0, Energy
             )) : (
               <span className="text-xs text-gray-500">No active debuffs</span>
             )}
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 pt-4 border-t border-gray-700/50">
-        <div className="text-xs text-gray-500 mb-2">Relic Effects</div>
-        <div className="flex gap-2 flex-wrap">
-          <div className="text-xs bg-amber-900/20 text-amber-300 px-2 py-1 rounded border border-amber-700/30">
-            Turn 3 gain 18 Block
-          </div>
-          <div className="text-xs bg-amber-900/20 text-amber-300 px-2 py-1 rounded border border-amber-700/30">
-            Turn 5 gain 1 Intangible
-          </div>
-          <div className="text-xs bg-amber-900/20 text-amber-300 px-2 py-1 rounded border border-amber-700/30">
-            Vulnerable Enemies take 75% more damage instead of 50%
-          </div>
-          <div className="text-xs bg-amber-900/20 text-amber-300 px-2 py-1 rounded border border-amber-700/30">
-            +1 Energy on first turn of each combat
           </div>
         </div>
       </div>

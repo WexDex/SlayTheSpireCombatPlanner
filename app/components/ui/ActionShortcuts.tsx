@@ -12,6 +12,10 @@ interface ActionShortcutsProps {
   onAddPotion: (potionIndex: number) => void;
   onApplyPlayerBuff: (buff: string) => void;
   onApplyPlayerDebuff: (debuff: string) => void;
+  onConsumeEnergy: (amount: number) => void;
+  onGainEnergy: (amount: number) => void;
+  currentEnergy: number;
+  maxEnergyForTurn: number;
   potions?: Card[];
   currentTurn: number;
   enemyNames?: string[];
@@ -26,6 +30,10 @@ export default function ActionShortcuts({
   onAddPotion,
   onApplyPlayerBuff,
   onApplyPlayerDebuff,
+  onConsumeEnergy,
+  onGainEnergy,
+  currentEnergy,
+  maxEnergyForTurn,
   potions = [],
   currentTurn,
   enemyNames = [],
@@ -115,6 +123,38 @@ export default function ActionShortcuts({
                 {dmg}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Energy Management Section */}
+        <div className="mb-4">
+          <label className="text-xs text-gray-400 block mb-2">
+            Energy Management ({currentEnergy}/{maxEnergyForTurn})
+          </label>
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() => onConsumeEnergy(1)}
+              disabled={currentEnergy <= 0}
+              className="px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold transition-all shadow-lg shadow-orange-500/20"
+            >
+              Use 1 ⚡
+            </button>
+            <button
+              onClick={() => onConsumeEnergy(2)}
+              disabled={currentEnergy < 2}
+              className="px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold transition-all shadow-lg shadow-orange-500/20"
+            >
+              Use 2 ⚡
+            </button>
+            <button
+              onClick={() => onGainEnergy(1)}
+              className="px-3 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-semibold transition-all shadow-lg shadow-yellow-500/20"
+            >
+              Gain 1 ⚡
+            </button>
+          </div>
+          <div className="text-xs text-gray-500">
+            Click to consume energy when playing cards
           </div>
         </div>
 
