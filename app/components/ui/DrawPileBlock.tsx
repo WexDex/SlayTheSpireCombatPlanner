@@ -44,7 +44,11 @@ export default function DrawPileBlock({
 
   function getEffectiveValue(field?: { base?: number; upgraded?: number }, isUpgraded?: boolean): number {
     if (!field) return 0;
-    return isUpgraded && field.upgraded !== undefined ? field.upgraded : field.base || 0;
+    // If upgraded and upgraded value exists, use it; otherwise use base
+    if (isUpgraded && field.upgraded !== undefined) {
+      return field.upgraded;
+    }
+    return field.base || 0;
   }
 
   return (

@@ -1,7 +1,7 @@
 import { Card } from "./types";
 
 const weakMultiplier = 0.75;
-const vulnerableMultiplier = 1.5;
+const vulnerableMultiplier = 1.75;
 const frailMultiplier = 0.75;
 
 export function getDamageStats(dmg: number | undefined) {

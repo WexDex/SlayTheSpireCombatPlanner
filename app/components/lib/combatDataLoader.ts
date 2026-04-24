@@ -8,7 +8,26 @@ export function getPlayerData() {
 }
 
 export function getDeckCards(): Card[] {
-  return combatData.deck.map(card => ({
+  return combatData.deck.map(card => {
+    let damage = card.damage;
+    // Apply Strike Dummy relic bonus: +3 damage to cards containing "Strike"
+    if (damage && card.name.includes("Strike")) {
+      damage = {
+        base: damage.base + 3,
+        upgraded: damage.upgraded !== undefined ? damage.upgraded + 3 : undefined,
+      } as any;
+    }
+    return {
+      ...card,
+      damage,
+      cost: card.cost || { base: 0 },
+      isChanged: (card as any).isChanged ?? false,
+    };
+  }) as Card[];
+}
+
+export function getPotions(): Card[] {
+  return (combatData.potions || []).map((card: any) => ({
     ...card,
     cost: card.cost || { base: 0 },
     isChanged: (card as any).isChanged ?? false,
@@ -19,6 +38,7 @@ export function getEnemiesAndTurns() {
   const enemies = combatData.enemies.map((enemy) => ({
     name: enemy.name,
     hp: enemy.hp,
+    maxHp: (enemy as any).maxHp || enemy.hp,
   })) as Enemy[];
 
   // Find max turn count

@@ -15,6 +15,8 @@ type Props = {
   addWound: any;
   onCardSelect: (card: Card, location: LOCATION, index: number) => void;
   selectedCard: { card: Card; location: LOCATION; index: number } | null;
+  weakMultiplier?: number;
+  vulnerableMultiplier?: number;
 };
 
 export default function PileBlock({
@@ -29,6 +31,8 @@ export default function PileBlock({
   addWound,
   onCardSelect,
   selectedCard,
+  weakMultiplier = 0.75,
+  vulnerableMultiplier = 1.5,
 }: Props) {
   const actions = {
     moveCard,
@@ -58,6 +62,8 @@ export default function PileBlock({
               size="small"
               onCardSelect={onCardSelect}
               isSelected={selectedCard?.location === location && selectedCard?.index === index}
+              weakMultiplier={weakMultiplier}
+              vulnerableMultiplier={vulnerableMultiplier}
               {...actions}
             />
           ))}

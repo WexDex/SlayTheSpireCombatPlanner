@@ -7,10 +7,13 @@ import DrawPileBlock from "./components/ui/DrawPileBlock";
 import CardMenu from "./components/ui/CardMenu";
 import ActionLog, { ActionEntry } from "./components/ui/ActionLog";
 import ActionShortcuts from "./components/ui/ActionShortcuts";
+import RelicsDisplay from "./components/ui/RelicsDisplay";
+import EnemyDetailsBlock from "./components/ui/EnemyDetailsBlock";
 import {
   getPlayerData,
   getDeckCards,
   getEnemiesAndTurns,
+  getPotions,
 } from "./components/lib/combatDataLoader";
 import {
   addWound,
@@ -31,8 +34,8 @@ const { enemies, turns } = getEnemiesAndTurns();
 
 const initialGameState: GameState = {
   turn: 1,
-  [LOCATION.HAND]: deckCards.slice(0, 10),
-  [LOCATION.DRAW]: deckCards.slice(10),
+  [LOCATION.HAND]: deckCards.slice(0, 5),
+  [LOCATION.DRAW]: deckCards.slice(5),
   [LOCATION.DISCARD]: [],
   [LOCATION.EXHAUST]: [],
 };
@@ -47,21 +50,37 @@ export default function Home() {
   const [playerStats, setPlayerStats] = useState({
     hp: playerData.hp,
     maxHp: playerData.maxHp,
-    energy: playerData.energy.base,
+    energy: playerData.energy.base + (playerData.energy.turn1Bonus || 0),
     drawPerTurn: playerData.drawPerTurn,
+    block: 0,
   });
   const [enemyStats, setEnemyStats] = useState(
-    enemies.map((enemy) => ({ name: enemy.name, hp: enemy.hp })),
+    enemies.map((enemy) => ({ name: enemy.name, hp: enemy.hp, maxHp: enemy.maxHp || enemy.hp })),
   );
   const [enemyDebuffs, setEnemyDebuffs] = useState<
     Record<number, Record<number, string[]>>
   >({});
+  const [enemyHistory, setEnemyHistory] = useState<Record<
+    number,
+    {
+      stats: { name: string; hp: number; maxHp: number }[];
+      debuffs: Record<number, string[]>;
+    }
+  >>({});
+  const [playerEffects, setPlayerEffects] = useState<
+    Record<number, { buffs: string[]; debuffs: string[] }>
+  >({});
+  const [lastUpdatedEnemyIndex, setLastUpdatedEnemyIndex] = useState<number | null>(null);
   const [actionHistory, setActionHistory] = useState<ActionEntry[]>([]);
+  const [potions] = useState(() => getPotions());
 
   const addActionLog = (
     action: string,
     type: ActionEntry["type"],
     details?: string,
+    beforeValue?: string | number,
+    afterValue?: string | number,
+    relatedInfo?: string[],
   ) => {
     const entry: ActionEntry = {
       id: `${Date.now()}-${Math.random()}`,
@@ -69,6 +88,9 @@ export default function Home() {
       action,
       type,
       details,
+      beforeValue,
+      afterValue,
+      relatedInfo,
     };
     setActionHistory((prev) => [...prev, entry]);
   };
@@ -104,7 +126,10 @@ export default function Home() {
 
   const handleUpgradeCard = (loc: LOCATION, index: number) => {
     const cardName = gameState[loc]?.[index]?.name || "Unknown Card";
-    addActionLog(`Upgraded ${cardName}`, "card", "Card is now enhanced");
+    const damage = (gameState[loc]?.[index]?.damage?.upgraded || gameState[loc]?.[index]?.damage?.base || 0);
+    const block = (gameState[loc]?.[index]?.block?.upgraded || gameState[loc]?.[index]?.block?.base || 0);
+    const stats = [damage > 0 ? `+${damage} DMG` : "", block > 0 ? `+${block} Block` : ""].filter(Boolean).join(", ");
+    addActionLog(`Upgraded ${cardName}`, "card", `${stats || "Stats enhanced"} - Cost effect reduced`);
     setGameState((prev) => upgradeCard(prev, loc, index));
   };
 
@@ -154,19 +179,74 @@ export default function Home() {
     setSelectedCard(null);
   };
 
+  const saveEnemyTurnSnapshot = (turnNumber: number) => {
+    setEnemyHistory((prev) => ({
+      ...prev,
+      [turnNumber]: {
+        stats: enemyStats.map((enemy) => ({ ...enemy })),
+        debuffs: { ...(enemyDebuffs[turnNumber] ?? {}) },
+      },
+    }));
+  };
+
   const handleDrawCards = (count: number) => {
-    addActionLog(
-      `Drew ${count} card${count !== 1 ? "s" : ""}`,
-      "combat",
-      `From draw pile`,
-    );
     setGameState((prev) => {
       const next = { ...prev } as GameState;
-      const drawCards = next[LOCATION.DRAW].slice(0, count);
+      const drawCards: Card[] = [];
+      let remaining = count;
+
+      const shuffleDiscardToDraw = () => {
+        if (next[LOCATION.DISCARD].length === 0) return;
+        const shuffled = [...next[LOCATION.DISCARD]].sort(() => Math.random() - 0.5);
+        next[LOCATION.DRAW] = [...next[LOCATION.DRAW], ...shuffled];
+        next[LOCATION.DISCARD] = [];
+        addActionLog(
+          "Shuffled discard into draw pile",
+          "combat",
+          `Refilled draw pile before drawing ${remaining} card${remaining !== 1 ? "s" : ""}`,
+        );
+      };
+
+      while (remaining > 0) {
+        if (next[LOCATION.DRAW].length === 0) {
+          shuffleDiscardToDraw();
+          if (next[LOCATION.DRAW].length === 0) break;
+        }
+
+        const take = Math.min(remaining, next[LOCATION.DRAW].length);
+        drawCards.push(...next[LOCATION.DRAW].slice(0, take));
+        next[LOCATION.DRAW] = next[LOCATION.DRAW].slice(take);
+        remaining -= take;
+      }
+
       next[LOCATION.HAND] = [...next[LOCATION.HAND], ...drawCards];
-      next[LOCATION.DRAW] = next[LOCATION.DRAW].slice(count);
+      addActionLog(
+        `Drew ${drawCards.length} card${drawCards.length !== 1 ? "s" : ""}`,
+        "combat",
+        drawCards.length < count
+          ? `Only ${drawCards.length} drawn because draw pile and discard were empty`
+          : `From draw pile`,
+      );
       return next;
     });
+  };
+
+  const handleAddPotion = (potionIndex: number) => {
+    const potion = potions[potionIndex];
+    if (!potion) return;
+
+    addActionLog(
+      `Added potion ${potion.name} to hand`,
+      "card",
+      `Cost 0 potion added from pool`,
+      undefined,
+      undefined,
+      [`Potion: ${potion.name}`],
+    );
+    setGameState((prev) => ({
+      ...prev,
+      [LOCATION.HAND]: [...prev[LOCATION.HAND], { ...potion, cost: { base: 0 } }],
+    }));
   };
 
   const handleResetSimulation = () => {
@@ -176,16 +256,68 @@ export default function Home() {
       "All changes reverted to initial state",
     );
     setGameState(initialGameState);
+    setPlayerStats({
+      hp: playerData.hp,
+      maxHp: playerData.maxHp,
+      energy: playerData.energy.base + (playerData.energy.turn1Bonus || 0),
+      drawPerTurn: playerData.drawPerTurn,
+      block: 0,
+    });
+    setEnemyStats(
+      enemies.map((enemy) => ({ name: enemy.name, hp: enemy.hp, maxHp: enemy.maxHp || enemy.hp }))
+    );
+    setEnemyDebuffs({});
+    setEnemyHistory({});
+    setPlayerEffects({});
     setSelectedCard(null);
   };
 
   const handleSelectTurn = (turnNumber: number) => {
+    saveEnemyTurnSnapshot(gameState.turn);
     addActionLog(
       `Selected Turn ${turnNumber}`,
       "combat",
       `Viewing turn ${turnNumber}`,
     );
     setGameState((prev) => ({ ...prev, turn: turnNumber }));
+
+    const history = enemyHistory[turnNumber];
+    if (history) {
+      setEnemyStats(history.stats.map((enemy) => ({ ...enemy })));
+      setEnemyDebuffs((prev) => ({ ...prev, [turnNumber]: { ...history.debuffs } }));
+    }
+
+    if (turnNumber === 1 && playerData.energy.turn1Bonus) {
+      setPlayerStats((prev) => ({
+        ...prev,
+        energy: playerData.energy.base + playerData.energy.turn1Bonus,
+      }));
+      addActionLog(
+        "Lantern triggered",
+        "stat",
+        `Turn 1 energy bonus applied`,
+        `${playerData.energy.base} Energy`,
+        `${playerData.energy.base + playerData.energy.turn1Bonus} Energy`,
+        ["Lantern"],
+      );
+    }
+
+    const relicBlockEffect = playerData.relicEffects?.find((effect: any) => effect.turn === turnNumber && effect.effect.toLowerCase().includes("block"));
+    if (relicBlockEffect) {
+      const blockValueMatch = relicBlockEffect.effect.match(/(\d+)/);
+      const blockValue = blockValueMatch ? Number(blockValueMatch[1]) : 0;
+      if (blockValue > 0) {
+        setPlayerStats((prev) => ({ ...prev, block: prev.block + blockValue }));
+        addActionLog(
+          "Captain's Wheel triggered",
+          "stat",
+          `Gain ${blockValue} Block on turn ${turnNumber}`,
+          `${playerStats.block} Block`,
+          `${playerStats.block + blockValue} Block`,
+          ["Captain's Wheel"],
+        );
+      }
+    }
   };
 
   const handleChangePlayerStat = (
@@ -197,21 +329,90 @@ export default function Home() {
       maxHp: "Max HP",
       energy: "Energy",
       drawPerTurn: "Draw Per Turn",
+      block: "Block",
     };
+    const previousValue = playerStats[field];
     addActionLog(
       `Player ${statNames[field]} changed`,
       "stat",
-      `New value: ${value}`,
+      `Turn ${gameState.turn}`,
+      `${previousValue}`,
+      `${value}`,
+      [`Field: ${statNames[field]}`],
     );
     setPlayerStats((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleChangeEnemyHp = (index: number, hp: number) => {
     const enemyName = enemyStats[index]?.name || `Enemy ${index + 1}`;
-    addActionLog(`${enemyName} HP changed`, "enemy", `New HP: ${hp}`);
+    const previousHp = enemyStats[index]?.hp || 0;
+    const maxHp = enemyStats[index]?.maxHp || previousHp;
+    const previousPercent = Math.round((previousHp / maxHp) * 100);
+    const newPercent = Math.round((hp / maxHp) * 100);
+
+    addActionLog(
+      `${enemyName} HP changed`,
+      "enemy",
+      `Turn ${gameState.turn}`,
+      `${previousHp} HP (${previousPercent}%)`,
+      `${hp} HP (${newPercent}%)`,
+      [`Max HP: ${maxHp}`, `Delta: ${hp - previousHp}`],
+    );
+    setLastUpdatedEnemyIndex(index);
     setEnemyStats((prev) =>
       prev.map((enemy, idx) => (idx === index ? { ...enemy, hp } : enemy)),
     );
+    setEnemyHistory((prev) => ({
+      ...prev,
+      [gameState.turn]: {
+        stats: (prev[gameState.turn]?.stats ?? enemyStats).map((enemy, idx) =>
+          idx === index ? { ...enemy, hp } : enemy,
+        ),
+        debuffs: prev[gameState.turn]?.debuffs ?? enemyDebuffs[gameState.turn] ?? {},
+      },
+    }));
+  };
+
+  const handleApplyPlayerBuff = (buff: string) => {
+    addActionLog(
+      `Applied ${buff} to Player`,
+      "stat",
+      `Turn ${gameState.turn}`,
+      undefined,
+      undefined,
+      [`Buff: ${buff}`, `Turn ${gameState.turn}`],
+    );
+    setPlayerEffects((prev) => {
+      const currentTurnEffects = prev[gameState.turn] ?? { buffs: [], debuffs: [] };
+      return {
+        ...prev,
+        [gameState.turn]: {
+          ...currentTurnEffects,
+          buffs: [...currentTurnEffects.buffs, buff],
+        },
+      };
+    });
+  };
+
+  const handleApplyPlayerDebuff = (debuff: string) => {
+    addActionLog(
+      `Applied ${debuff} to Player`,
+      "stat",
+      `Turn ${gameState.turn}`,
+      undefined,
+      undefined,
+      [`Debuff: ${debuff}`, `Turn ${gameState.turn}`],
+    );
+    setPlayerEffects((prev) => {
+      const currentTurnEffects = prev[gameState.turn] ?? { buffs: [], debuffs: [] };
+      return {
+        ...prev,
+        [gameState.turn]: {
+          ...currentTurnEffects,
+          debuffs: [...currentTurnEffects.debuffs, debuff],
+        },
+      };
+    });
   };
 
   const handleAddEnemyDebuff = (
@@ -224,39 +425,74 @@ export default function Home() {
       `Applied ${debuff} to ${enemyName}`,
       "enemy",
       `Turn ${turnNumber}`,
+      undefined,
+      undefined,
+      [`Debuff: ${debuff}`, `Target: ${enemyName}`, `Turn ${turnNumber}`],
     );
     setEnemyDebuffs((prev) => {
       const existing = prev[turnNumber] ?? {};
       const enemyList = existing[enemyIndex] ?? [];
-      return {
+      const updated = {
         ...prev,
         [turnNumber]: {
           ...existing,
           [enemyIndex]: [...enemyList, debuff],
         },
       };
+      setEnemyHistory((history) => ({
+        ...history,
+        [turnNumber]: {
+          stats: history[turnNumber]?.stats ?? enemyStats,
+          debuffs: updated[turnNumber],
+        },
+      }));
+      return updated;
     });
   };
 
   const handleEnergyChange = (value: number) => {
-    addActionLog(`Energy adjusted`, "stat", `New energy: ${value}`);
+    addActionLog(
+      `Energy adjusted`,
+      "stat",
+      `Turn ${gameState.turn}`,
+      `${playerStats.energy} Energy`,
+      `${value} Energy`,
+      [`Energy modified by ${value - playerStats.energy}`],
+    );
     setPlayerStats((prev) => ({ ...prev, energy: value }));
   };
 
   const handleShortcutDamage = (enemyIndex: number, damage: number) => {
     const enemyName = enemyStats[enemyIndex]?.name || `Enemy ${enemyIndex + 1}`;
+    const currentHp = enemyStats[enemyIndex].hp;
+    const newHp = Math.max(0, currentHp - damage);
+    const hpPercent = Math.round((newHp / (enemyStats[enemyIndex].maxHp || currentHp)) * 100);
+    
     addActionLog(
       `Dealt ${damage} damage to ${enemyName}`,
       "combat",
-      `Turn ${gameState.turn} : new Health : ${Math.max(0, enemyStats[enemyIndex].hp - damage)}`,
+      `Turn ${gameState.turn}`,
+      `${currentHp} HP`,
+      `${newHp} HP (${hpPercent}%)`,
+      [`Damage Applied: ${damage}`, `Max HP: ${enemyStats[enemyIndex].maxHp || currentHp}`],
     );
+    setLastUpdatedEnemyIndex(enemyIndex);
     setEnemyStats((prev) =>
       prev.map((enemy, idx) =>
         idx === enemyIndex
-          ? { ...enemy, hp: Math.max(0, enemy.hp - damage) }
+          ? { ...enemy, hp: newHp }
           : enemy,
       ),
     );
+    setEnemyHistory((prev) => ({
+      ...prev,
+      [gameState.turn]: {
+        stats: (prev[gameState.turn]?.stats ?? enemyStats).map((enemy, idx) =>
+          idx === enemyIndex ? { ...enemy, hp: newHp } : enemy,
+        ),
+        debuffs: prev[gameState.turn]?.debuffs ?? enemyDebuffs[gameState.turn] ?? {},
+      },
+    }));
   };
 
   const handleShortcutDebuff = (enemyIndex: number, debuff: string) => {
@@ -265,41 +501,66 @@ export default function Home() {
       `Applied ${debuff} to ${enemyName}`,
       "enemy",
       `Turn ${gameState.turn}`,
+      undefined,
+      undefined,
+      [`Debuff: ${debuff}`, `Target: ${enemyName}`],
     );
     setEnemyDebuffs((prev) => {
       const existing = prev[gameState.turn] ?? {};
       const enemyList = existing[enemyIndex] ?? [];
-      return {
+      const updated = {
         ...prev,
         [gameState.turn]: {
           ...existing,
           [enemyIndex]: [...enemyList, debuff],
         },
       };
+      setEnemyHistory((history) => ({
+        ...history,
+        [gameState.turn]: {
+          stats: history[gameState.turn]?.stats ?? enemyStats,
+          debuffs: updated[gameState.turn],
+        },
+      }));
+      return updated;
     });
   };
 
   const handleShortcutHeal = (amount: number) => {
+    const currentHp = playerStats.hp;
+    const newHp = Math.min(playerStats.maxHp, currentHp + amount);
+    const hpPercent = Math.round((newHp / playerStats.maxHp) * 100);
+    
     addActionLog(
       `Healed ${amount} HP`,
       "stat",
-      `Player now has ${Math.min(playerStats.maxHp, playerStats.hp + amount)} HP`,
+      `Turn ${gameState.turn}`,
+      `${currentHp} HP (${Math.round((currentHp / playerStats.maxHp) * 100)}%)`,
+      `${newHp} HP (${hpPercent}%)`,
+      [`Healing: ${amount}`, `Max HP: ${playerStats.maxHp}`],
     );
     setPlayerStats((prev) => ({
       ...prev,
-      hp: Math.min(prev.maxHp, prev.hp + amount),
+      hp: newHp,
     }));
   };
 
   const handleShortcutDamagePlayer = (amount: number) => {
+    const currentHp = playerStats.hp;
+    const newHp = Math.max(0, currentHp - amount);
+    const hpPercent = Math.round((newHp / playerStats.maxHp) * 100);
+    
     addActionLog(
       `Took ${amount} damage`,
       "stat",
-      `Player now has ${Math.max(0, playerStats.hp - amount)} HP`,
+      `Turn ${gameState.turn}`,
+      `${currentHp} HP (${Math.round((currentHp / playerStats.maxHp) * 100)}%)`,
+      `${newHp} HP (${hpPercent}%)`,
+      [`Damage Taken: ${amount}`, `Max HP: ${playerStats.maxHp}`],
     );
     setPlayerStats((prev) => ({
       ...prev,
-      hp: Math.max(0, prev.hp - amount),
+      hp: newHp,
     }));
   };
 
@@ -334,19 +595,8 @@ export default function Home() {
       )}
 
       <div className="gap-5 flex flex-col">
-        {/* FIRST BLOCK : PLAYER STATS */}
-        <PlayerStatsBlock
-          HP={playerStats.hp}
-          MaxHP={playerStats.maxHp}
-          Energy={playerStats.energy}
-          DrawPT={playerStats.drawPerTurn}
-          onChangeHP={(value) => handleChangePlayerStat("hp", value)}
-          onChangeMaxHP={(value) => handleChangePlayerStat("maxHp", value)}
-          onChangeEnergy={handleEnergyChange}
-          onChangeDrawPT={(value) =>
-            handleChangePlayerStat("drawPerTurn", value)
-          }
-        />
+        {/* RELICS DISPLAY */}
+        <RelicsDisplay relics={playerData.relics} />
 
         {/* SECOND BLOCK : ENEMY TIMELINE */}
         <TimelineBlock
@@ -357,14 +607,46 @@ export default function Home() {
           enemyDebuffs={enemyDebuffs}
           onAddEnemyDebuff={handleAddEnemyDebuff}
           onChangeEnemyHp={handleChangeEnemyHp}
+          highlightEnemyIndex={lastUpdatedEnemyIndex}
           energy={playerStats.energy}
+        />
+
+        {/* ENEMY DETAILS BLOCK */}
+        <EnemyDetailsBlock
+          enemies={enemyStats}
+          debuffs={enemyDebuffs[gameState.turn] ?? {}}
+          highlightIndex={lastUpdatedEnemyIndex}
+          turn={turns[gameState.turn - 1]}
+          onEnemyHpChange={handleChangeEnemyHp}
+          currentTurn={gameState.turn}
+          onSelectTurn={handleSelectTurn}
         />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
           <div className="space-y-5">
+            {/* FIRST BLOCK : PLAYER STATS */}
+            <PlayerStatsBlock
+              HP={playerStats.hp}
+              MaxHP={playerStats.maxHp}
+              Block={playerStats.block}
+              Energy={playerStats.energy}
+              DrawPT={playerStats.drawPerTurn}
+              buffs={playerEffects[gameState.turn]?.buffs ?? []}
+              debuffs={playerEffects[gameState.turn]?.debuffs ?? []}
+              onChangeHP={(value) => handleChangePlayerStat("hp", value)}
+              onChangeMaxHP={(value) => handleChangePlayerStat("maxHp", value)}
+              onChangeBlock={(value) => handleChangePlayerStat("block", value)}
+              onChangeEnergy={handleEnergyChange}
+              onChangeDrawPT={(value) =>
+                handleChangePlayerStat("drawPerTurn", value)
+              }
+            />
+
             {/* THIRD BLOCK : Player Hand */}
             <PlayerHandBlock
               cards={gameState[LOCATION.HAND]}
+              weakMultiplier={playerData.modifiers.weakMultiplier ?? 0.75}
+              vulnerableMultiplier={playerData.modifiers.vulnerableMultiplier ?? 1.5}
               moveCard={handleMoveCard}
               upgradeCard={handleUpgradeCard}
               downgradeCard={handleDowngradeCard}
@@ -381,6 +663,8 @@ export default function Home() {
             {/* FOURTH BLOCK : Draw Pile */}
             <DrawPileBlock
               cards={gameState[LOCATION.DRAW]}
+              weakMultiplier={playerData.modifiers.weakMultiplier ?? 0.75}
+              vulnerableMultiplier={playerData.modifiers.vulnerableMultiplier ?? 1.5}
               moveCard={handleMoveCard}
               upgradeCard={handleUpgradeCard}
               downgradeCard={handleDowngradeCard}
@@ -404,10 +688,14 @@ export default function Home() {
               enemyCount={enemyStats.length}
               enemyNames={enemyStats.map((e) => e.name)}
               currentTurn={gameState.turn}
+              potions={potions}
+              onAddPotion={handleAddPotion}
               onDamageEnemy={handleShortcutDamage}
               onApplyDebuff={handleShortcutDebuff}
               onHealPlayer={handleShortcutHeal}
               onDamagePlayer={handleShortcutDamagePlayer}
+              onApplyPlayerBuff={handleApplyPlayerBuff}
+              onApplyPlayerDebuff={handleApplyPlayerDebuff}
             />
             <PileBlock
               title="Discard"
@@ -421,6 +709,8 @@ export default function Home() {
               addWound={handleAddWound}
               onCardSelect={handleCardSelect}
               selectedCard={selectedCard}
+              weakMultiplier={playerData.modifiers.weakMultiplier ?? 0.75}
+              vulnerableMultiplier={playerData.modifiers.vulnerableMultiplier ?? 1.5}
             />
             <PileBlock
               title="Exhaust"
@@ -434,6 +724,8 @@ export default function Home() {
               addWound={handleAddWound}
               onCardSelect={handleCardSelect}
               selectedCard={selectedCard}
+              weakMultiplier={playerData.modifiers.weakMultiplier ?? 0.75}
+              vulnerableMultiplier={playerData.modifiers.vulnerableMultiplier ?? 1.5}
             />
           </div>
         </div>

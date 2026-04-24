@@ -23,6 +23,8 @@ interface GameCardProps {
   addWound: any;
   onCardSelect: (card: Card, location: LOCATION, index: number) => void;
   isSelected: boolean;
+  weakMultiplier?: number;
+  vulnerableMultiplier?: number;
 }
 
 export default function STSCard({
@@ -38,6 +40,8 @@ export default function STSCard({
   onCardSelect,
   isSelected,
   size = "large",
+  weakMultiplier = 0.75,
+  vulnerableMultiplier = 1.5,
 }: GameCardProps) {
   const styles = cardTypeStyles[card.type];
   const isSmall = size === "small";
@@ -60,7 +64,11 @@ export default function STSCard({
   ): number | undefined {
     const value = card[field];
     if (value === undefined) return undefined;
-    return card.isUpgraded ? value.upgraded : value.base;
+    // If upgraded and upgraded value exists, use it; otherwise use base
+    if (card.isUpgraded && value.upgraded !== undefined) {
+      return value.upgraded;
+    }
+    return value.base;
   }
 
   function getFullDamage() {
@@ -102,7 +110,7 @@ export default function STSCard({
           className={`${styles.nameBg} ${isSmall ? "px-1.5 py-0.5 mt-3" : "px-2 py-1 mt-6"} rounded border ${styles.accentBorder} backdrop-blur-sm transition-all duration-300 hover:brightness-120`}
         >
           <div
-            className={`${isSmall ? "text-[10px]" : "text-sm"} font-semibold text-white text-center leading-tight truncate`}
+            className={`${isSmall ? "text-[10px]" : "text-sm"} font-semibold text-white text-center leading-tight`}
           >
             <span
               className={`${card.isUpgraded ? "text-green-400 animate-pulse" : "text-white"}`}

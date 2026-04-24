@@ -17,7 +17,7 @@ type Position = {
   y: number;
 };
 
-type CardType = "Attack" | "Skill" | "Power" | "Curse" | "Status";
+type CardType = "Attack" | "Skill" | "Power" | "Curse" | "Status" | "Potion";
 
 type CardRarity = 'Common' | 'Uncommon' | 'Rare';
 
@@ -44,6 +44,7 @@ type Card = {
   block?: ValueRange;
   takeDamage?: ValueRange;
   vulnerable?: ValueRange;
+  heal?: ValueRange;
 
   // Utility stats
   draw?: ValueRange;
@@ -75,6 +76,7 @@ type Turn = {
 type Enemy = {
   name: string;
   hp: number;
+  maxHp?: number;
 };
 
 
@@ -112,6 +114,17 @@ export const cardTypeStyles = {
     nameBg: 'bg-violet-950/80',
     statColor: 'text-violet-300',
     typeColor: 'text-violet-400',
+  },
+  Potion: {
+    gradient: 'from-amber-950 via-amber-900/90 to-amber-950',
+    border: 'border-amber-600/60',
+    glow: 'shadow-amber-900/50',
+    accentBorder: 'border-amber-500/80',
+    costBg: 'bg-gradient-to-br from-amber-600 to-amber-800',
+    costGlow: 'shadow-amber-500/60',
+    nameBg: 'bg-amber-950/80',
+    statColor: 'text-amber-300',
+    typeColor: 'text-amber-400',
   },
   Curse: {
     gradient: 'from-slate-950 via-purple-950/90 to-slate-950',

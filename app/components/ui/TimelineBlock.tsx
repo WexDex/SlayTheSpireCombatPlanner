@@ -20,10 +20,11 @@ type Props = {
   enemyDebuffs?: Record<number, Record<number, string[]>>;
   onAddEnemyDebuff?: (turn: number, enemyIndex: number, debuff: string) => void;
   onChangeEnemyHp?: (enemyIndex: number, hp: number) => void;
+  highlightEnemyIndex?: number | null;
   energy?: number;
 };
 
-export default function TimelineBlock({ enemies = [], turns = [], currentTurn = 1, onSelectTurn, enemyDebuffs = {}, onAddEnemyDebuff, onChangeEnemyHp, energy = 0 }: Props) {
+export default function TimelineBlock({ enemies = [], turns = [], currentTurn = 1, onSelectTurn, enemyDebuffs = {}, onAddEnemyDebuff, onChangeEnemyHp, highlightEnemyIndex = null, energy = 0 }: Props) {
   const timelineData: TimelineData = { enemies, turns };
   const sampleData = timelineData.enemies.length > 0 ? timelineData : null;
   const [debuffInputs, setDebuffInputs] = React.useState<Record<number, string>>({});
@@ -72,7 +73,10 @@ export default function TimelineBlock({ enemies = [], turns = [], currentTurn = 
             <tr className="border-b border-gray-700">
               <th className="p-2 text-left text-gray-400">Turn</th>
               {sampleData.enemies.map((enemy, index) => (
-                <th key={index} className="p-2 text-center text-gray-400">
+                <th
+                  key={index}
+                  className={`p-2 text-center text-gray-400 transition-all ${highlightEnemyIndex === index ? "bg-red-900/20 ring-1 ring-red-500/30" : ""}`}
+                >
                   <div>{enemy.name}</div>
                   <div className="text-xs text-red-400">HP: {enemy.hp}</div>
                 </th>

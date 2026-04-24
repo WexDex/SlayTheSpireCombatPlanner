@@ -364,6 +364,57 @@
       "description": "Whenever a card is Exhausted, gain 3 Block."
     }
   ],
+  "potions": [
+    {
+      "name": "Brutality",
+      "type": "Potion",
+      "cost": {
+        "base": 0
+      },
+      "takeDamage": {
+        "base": 1
+      },
+      "draw": {
+        "base": 1
+      },
+      "description": "Gain +1 draw each turn. Lose 1 HP. Upgraded: gain Innate.",
+      "apply": {
+        "Innate": {
+          "base": 1
+        }
+      }
+    },
+    {
+      "name": "Feel No Pain",
+      "type": "Potion",
+      "cost": {
+        "base": 0
+      },
+      "blockOnExhaust": {
+        "base": 3,
+        "upgraded": 4
+      },
+      "description": "Whenever a card is Exhausted, gain 3 Block. (Cost 0)",
+      "isUpgraded": false
+    },
+    {
+      "name": "Juggernaut",
+      "type": "Potion",
+      "cost": {
+        "base": 2
+      },
+      "damage": {
+        "base": 5,
+        "upgraded": 7
+      },
+      "description": "Deal damage equal to 5(7) each time you block.",
+      "apply": {
+        "Juggernaut": {
+          "base": 1
+        }
+      }
+    }
+  ],
   "enemies": [
     {
       "name": "Blue Slaver",
